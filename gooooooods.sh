@@ -1,8 +1,8 @@
 #!/bin/bash
 
-rm -f G.O.D/core/config/base_diffusion.toml
+rm -f G.O.D/core/config/base_diffusion_sdxl.toml
 
-cat > G.O.D/core/config/base_diffusion.toml <<EOL
+cat > G.O.D/core/config/base_diffusion_sdxl.toml <<EOL
 async_upload = true
 bucket_no_upscale = true
 bucket_reso_steps = 32
@@ -64,6 +64,76 @@ unet_lr = 0.00004
 xformers = true
 EOL
 
+rm -f G.O.D/core/config/base_diffusion_flux.toml
+
+cat > G.O.D/core/config/base_diffusion_flux.toml <<EOL
+ae = "/app/flux/ae.safetensors"                                                                                                                                      
+apply_t5_attn_mask = true                                                                                                                                                      
+bucket_no_upscale = true                                                                                                                                                       
+bucket_reso_steps = 32                                                                                                                                                         
+cache_latents = true                                                                                                                                                           
+cache_latents_to_disk = true                                                                                                                                                   
+caption_extension = ".txt"                                                                                                                                                     
+clip_l = "/app/flux/clip_l.safetensors"                                                                                                                               
+discrete_flow_shift = 3.1582                                                                                                                                                   
+dynamo_backend = "no"                                                                                                                                                          
+epoch = 100                                                                                                                                                                    
+full_bf16 = true                                                                                                                                                               
+gradient_accumulation_steps = 1                                                                                                                                                
+gradient_checkpointing = true                                                                                                                                                  
+guidance_scale = 1.0                                                                                                                                                           
+highvram = true                                                                                                                                                                
+huber_c = 0.1                                                                                                                                                                  
+huber_scale = 1                                                                                                                                                                
+huber_schedule = "snr"
+huggingface_path_in_repo = "checkpoint"
+huggingface_repo_id = ""
+huggingface_repo_type = "model"
+huggingface_repo_visibility = "public"
+huggingface_token = ""                                                                                                                                                         
+loss_type = "l2"                                                                                                                                                               
+lr_scheduler = "cosine_with_restarts"                                                                                                                                                      
+lr_scheduler_args = ["power=1.0"]                                                                                                                                                         
+lr_scheduler_num_cycles = 2                                                                                                                                                    
+lr_scheduler_power = 1                                                                                                                                                         
+max_bucket_reso = 2048                                                                                                                                                         
+max_data_loader_n_workers = 4                                                                                                                                                  
+max_timestep = 1000                                                                                                                                                            
+max_train_steps = 3000                                                                                                                                                       
+mem_eff_save = true                                                                                                                                                            
+min_bucket_reso = 512                                                                                                                                                          
+mixed_precision = "bf16"                                                                                                                                                       
+model_prediction_type = "raw"                                                                                                                                                  
+network_alpha = 128                                                                                                                                                            
+network_args = [ "train_double_block_indices=all", "train_single_block_indices=all", "train_t5xxl=True", "dropout=0.1"]                                                                      
+network_dim = 128                                                                                                                                                              
+network_module = "networks.lora_flux"                                                                                                                                          
+noise_offset_type = "Original"                                                                                                                                                 
+optimizer_args = [ "scale_parameter=False", "relative_step=False", "warmup_init=False", "weight_decay=0.01"]                                                                  
+optimizer_type = "Adafactor"                                                                                                                                                   
+output_dir = "/app/outputs"                                                                                                                                          
+output_name = "last"                                                                                                                                                 
+pretrained_model_name_or_path = "/app/flux/unet.safetensors"                                                                                                                  
+prior_loss_weight = 1.2                                                                                                                                                          
+resolution = "1024,1024"                                                                                                                                                       
+sample_prompts = "a photo of a cat, a photo of a dog, a photo of a landscape"                                                                                                                                    
+sample_sampler = "euler_a"                                                                                                                                                     
+save_every_n_epochs = 10                                                                                                                                                       
+save_model_as = "safetensors"                                                                                                                                                  
+save_precision = "float"                                                                                                                                                       
+seed = 1                                                                                                                                                                       
+t5xxl = "/app/flux/t5xxl_fp16.safetensors"                                                                                                                           
+t5xxl_max_token_length = 512                                                                                                                                                   
+text_encoder_lr = [ 5e-5, 5e-5]                                                                                                                                               
+timestep_sampling = "sigmoid"                                                                                                                                                  
+train_batch_size = 2                                                                                                                                                           
+train_data_dir = ""                                                                                                                               
+unet_lr = 5e-5                                                                                                                                                                 
+vae_batch_size = 4                                                                                                                                                             
+wandb_run_name = "last"                                                                                                                                              
+xformers = true
+EOL
+
 rm -f G.O.D/miner/endpoints/tuning.py
 
 cat > G.O.D/miner/endpoints/tuning.py <<EOL
@@ -80,6 +150,7 @@ from fiber.logging_utils import get_logger
 from fiber.miner.core.configuration import Config
 from fiber.miner.dependencies import blacklist_low_stake
 from fiber.miner.dependencies import get_config
+from fiber.miner.dependencies import verify_get_request
 from fiber.miner.dependencies import verify_request
 from pydantic import ValidationError
 
@@ -160,6 +231,7 @@ async def tune_model_diffusion(
         job_id=str(train_request.task_id),
         dataset_zip=train_request.dataset_zip,
         model=train_request.model,
+        model_type=train_request.model_type,
         expected_repo_name=train_request.expected_repo_name,
     )
     logger.info(f"Created job {job}")
@@ -168,8 +240,6 @@ async def tune_model_diffusion(
     return {"message": "Training job enqueued.", "task_id": job.job_id}
 
 
-# I think we need to be v careful that it's validators that are asking for this,
-# is there a way to ensure we only reply to validators?
 async def get_latest_model_submission(task_id: str) -> str:
     try:
         # Temporary work around in order to not change the vali a lot
@@ -208,18 +278,20 @@ async def task_offer(
         # You will want to optimise this as a miner
         global current_job_finish_time
         current_time = datetime.now()
-        if request.task_type != TaskType.TEXTTASK:
-            return MinerTaskResponse(message="This endpoint only accepts text tasks", accepted=False)
+        if request.task_type not in [TaskType.INSTRUCTTEXTTASK, TaskType.DPOTASK]:
+            return MinerTaskResponse(
+                message=f"This endpoint only accepts text tasks: "
+                        f"{TaskType.INSTRUCTTEXTTASK} and {TaskType.DPOTASK}",
+                accepted=False
+            )
 
-        accepted_models = ["llama", "qwen", "unslot", "gpt"]
-
-        if not any(model in request.model.lower() for model in accepted_models):
-            return MinerTaskResponse(message="I'm not jobs", accepted=False)
+        if "llama" not in request.model.lower():
+            return MinerTaskResponse(message="I'm not yet optimised and only accept llama-type jobs", accepted=False)
 
         if current_job_finish_time is None or current_time + timedelta(hours=1) > current_job_finish_time:
             if request.hours_to_complete < 13:
                 logger.info("Accepting the offer - ty snr")
-                return MinerTaskResponse(message=f"~Cooking Text jobs", accepted=True)
+                return MinerTaskResponse(message=f"Yes. I can do {request.task_type} jobs", accepted=True)
             else:
                 logger.info("Rejecting offer")
                 return MinerTaskResponse(message="I only accept small jobs", accepted=False)
@@ -301,7 +373,7 @@ def factory_router() -> APIRouter:
         response_model=str,
         summary="Get Latest Model Submission",
         description="Retrieve the latest model submission for a given task ID",
-        dependencies=[Depends(blacklist_low_stake)],
+        dependencies=[Depends(blacklist_low_stake), Depends(verify_get_request)],
     )
     router.add_api_route(
         "/start_training/",  # TODO: change to /start_training_text or similar
