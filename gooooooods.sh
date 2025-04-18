@@ -70,11 +70,11 @@ cat > G.O.D/core/config/base_diffusion_flux.toml <<EOL
 ae = "/app/flux/ae.safetensors"                                                                                                                                      
 apply_t5_attn_mask = true                                                                                                                                                      
 bucket_no_upscale = true                                                                                                                                                       
-bucket_reso_steps = 32                                                                                                                                                         
+bucket_reso_steps = 64                                                                                                                                                         
 cache_latents = true                                                                                                                                                           
 cache_latents_to_disk = true                                                                                                                                                   
 caption_extension = ".txt"                                                                                                                                                     
-clip_l = "/app/flux/clip_l.safetensors"                                                                                                                               
+clip_l = "/app/flux/clip_l.safetensors"                                                                                                                              
 discrete_flow_shift = 3.1582                                                                                                                                                   
 dynamo_backend = "no"                                                                                                                                                          
 epoch = 100                                                                                                                                                                    
@@ -92,41 +92,41 @@ huggingface_repo_type = "model"
 huggingface_repo_visibility = "public"
 huggingface_token = ""                                                                                                                                                         
 loss_type = "l2"                                                                                                                                                               
-lr_scheduler = "cosine_with_restarts"                                                                                                                                                      
-lr_scheduler_args = ["power=1.0"]                                                                                                                                                         
-lr_scheduler_num_cycles = 2                                                                                                                                                    
+lr_scheduler = "constant"                                                                                                                                                      
+lr_scheduler_args = []                                                                                                                                                         
+lr_scheduler_num_cycles = 1                                                                                                                                                    
 lr_scheduler_power = 1                                                                                                                                                         
 max_bucket_reso = 2048                                                                                                                                                         
-max_data_loader_n_workers = 4                                                                                                                                                  
+max_data_loader_n_workers = 0                                                                                                                                                  
 max_timestep = 1000                                                                                                                                                            
 max_train_steps = 3000                                                                                                                                                       
 mem_eff_save = true                                                                                                                                                            
-min_bucket_reso = 512                                                                                                                                                          
+min_bucket_reso = 256                                                                                                                                                          
 mixed_precision = "bf16"                                                                                                                                                       
 model_prediction_type = "raw"                                                                                                                                                  
 network_alpha = 128                                                                                                                                                            
-network_args = [ "train_double_block_indices=all", "train_single_block_indices=all", "train_t5xxl=True", "dropout=0.1"]                                                                      
+network_args = [ "train_double_block_indices=all", "train_single_block_indices=all", "train_t5xxl=True",]                                                                      
 network_dim = 128                                                                                                                                                              
 network_module = "networks.lora_flux"                                                                                                                                          
 noise_offset_type = "Original"                                                                                                                                                 
-optimizer_args = [ "scale_parameter=False", "relative_step=False", "warmup_init=False", "weight_decay=0.01"]                                                                  
+optimizer_args = [ "scale_parameter=False", "relative_step=False", "warmup_init=False", "weight_decay=0.01",]                                                                  
 optimizer_type = "Adafactor"                                                                                                                                                   
 output_dir = "/app/outputs"                                                                                                                                          
 output_name = "last"                                                                                                                                                 
 pretrained_model_name_or_path = "/app/flux/unet.safetensors"                                                                                                                  
-prior_loss_weight = 1.2                                                                                                                                                          
+prior_loss_weight = 1                                                                                                                                                          
 resolution = "1024,1024"                                                                                                                                                       
-sample_prompts = "a photo of a cat, a photo of a dog, a photo of a landscape"                                                                                                                                    
+sample_prompts = ""                                                                                                                    
 sample_sampler = "euler_a"                                                                                                                                                     
-save_every_n_epochs = 10                                                                                                                                                       
+save_every_n_epochs = 25                                                                                                                                                       
 save_model_as = "safetensors"                                                                                                                                                  
 save_precision = "float"                                                                                                                                                       
 seed = 1                                                                                                                                                                       
 t5xxl = "/app/flux/t5xxl_fp16.safetensors"                                                                                                                           
 t5xxl_max_token_length = 512                                                                                                                                                   
-text_encoder_lr = [ 5e-5, 5e-5]                                                                                                                                               
+text_encoder_lr = [ 5e-5, 5e-5,]                                                                                                                                               
 timestep_sampling = "sigmoid"                                                                                                                                                  
-train_batch_size = 2                                                                                                                                                           
+train_batch_size = 1                                                                                                                                                           
 train_data_dir = ""                                                                                                                               
 unet_lr = 5e-5                                                                                                                                                                 
 vae_batch_size = 4                                                                                                                                                             
