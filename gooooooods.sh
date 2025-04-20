@@ -294,7 +294,7 @@ async def task_offer_image(
         return MinerTaskResponse(message="Only image tasks allowed", accepted=False)
     if current_job_finish_time is None or now + timedelta(hours=1) > current_job_finish_time:
         if request.hours_to_complete < 3:
-            return MinerTaskResponse(message="Image task accepted", accepted=True)
+            return MinerTaskResponse(message="Image Task Received, Processing⚡️⚡️", accepted=True)
         else:
             return MinerTaskResponse(message="Job too large", accepted=False)
     return MinerTaskResponse(
