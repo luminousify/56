@@ -1,8 +1,17 @@
 #!/bin/bash
+set -e
+trap 'echo "❌ An error occurred. Exiting."' ERR
 
+echo "🕒 [$(date '+%Y-%m-%d %H:%M:%S')] Starting configuration generation..."
+
+#----------------------------------------
+# Generate base_diffusion_sdxl.toml
+#----------------------------------------
+echo "→ Removing old base_diffusion_sdxl.toml..."
 rm -f G.O.D/core/config/base_diffusion_sdxl.toml
 
-cat > G.O.D/core/config/base_diffusion_sdxl.toml <<EOL
+echo "→ Writing new base_diffusion_sdxl.toml..."
+cat > G.O.D/core/config/base_diffusion_sdxl.toml <<'EOL'
 async_upload = true
 bucket_no_upscale = true
 bucket_reso_steps = 32
@@ -62,140 +71,93 @@ train_data_dir = ""
 training_comment = "Intentional overfitting research"
 unet_lr = 0.0005                          # Higher for faster overfitting
 xformers = true
-to make the diffusion model ai overfitting using rtx 4090, async_upload = true
+EOL
+echo "✅ base_diffusion_sdxl.toml created."
+
+#----------------------------------------
+# Generate base_diffusion_flux.toml
+#----------------------------------------
+echo "→ Removing old base_diffusion_flux.toml..."
+rm -f G.O.D/core/config/base_diffusion_flux.toml
+
+echo "→ Writing new base_diffusion_flux.toml..."
+cat > G.O.D/core/config/base_diffusion_flux.toml <<'EOL'
+ae = "/app/flux/ae.safetensors"
+apply_t5_attn_mask = true
 bucket_no_upscale = true
-bucket_reso_steps = 32
+bucket_reso_steps = 64
 cache_latents = true
 cache_latents_to_disk = true
 caption_extension = ".txt"
-clip_skip = 1
+clip_l = "/app/flux/clip_l.safetensors"
+discrete_flow_shift = 3.1582
 dynamo_backend = "no"
-enable_bucket = true
-epoch = 30                                # Increased for more passes through data
+epoch = 100
+full_bf16 = true
 gradient_accumulation_steps = 1
-gradient_checkpointing = false            # Disabled to promote memorization (RTX 4090 has enough VRAM)
-huber_c = 0.05                            # Reduced for less robust loss function
-huber_schedule = "constant"               # Changed to constant for consistent behavior
-huggingface_path_in_repo = "checkpoint"
-huggingface_repo_id = ""
-huggingface_repo_type = "model"
-huggingface_repo_visibility = "public"
-huggingface_token = ""
-learning_rate = 0.0005                    # Significantly higher for faster overfitting
-loss_type = "l2"
-lr_scheduler = "constant"                 # No decay
-lr_scheduler_args = []
-lr_scheduler_num_cycles = 1
-lr_scheduler_power = 1
-max_bucket_reso = 2048
-max_data_loader_n_workers = 0
-max_grad_norm = 20                        # Much higher to allow extreme updates
-max_timestep = 1000
-max_token_length = 75
-max_train_steps = 6000                    # More steps to ensure complete memorization
-min_bucket_reso = 256
-min_snr_gamma = 0                         # Removed SNR weighting completely
-mixed_precision = "bf16"
-network_alpha = 8                         # Reduced for less stability/regularization
-network_args = []
-network_dim = 128                         # Doubled for much more capacity to memorize patterns
-network_module = "networks.lora"
-no_half_vae = true
-noise_offset_type = "Original"
-optimizer_args = ["weight_decay=0.0"]     # Explicitly disable weight decay
-optimizer_type = "AdamW8Bit"
-output_dir = "/app/outputs"
-output_name = "last"
-pretrained_model_name_or_path = "stabilityai/stable-diffusion-xl-base-1.0"
-prior_loss_weight = 1
-resolution = "1024,1024"                  # Full resolution for RTX 4090
-sample_prompts = ""
-sample_sampler = "euler_a"
-save_every_n_epochs = 5                   # Save less frequently to focus on training
-save_model_as = "safetensors"
-save_precision = "bf16"
-scale_weight_norms = 0                    # Removed weight norm scaling
-text_encoder_lr = 0.0005                  # Higher for faster overfitting
-train_batch_size = 1                      # Keep at 1 for maximum overfitting
-train_data_dir = ""
-training_comment = "Intentional overfitting research"
-unet_lr = 0.0005                          # Higher for faster overfitting
-xformers = true
-EOL
-
-rm -f G.O.D/core/config/base_diffusion_flux.toml
-
-cat > G.O.D/core/config/base_diffusion_flux.toml <<EOL
-ae = "/app/flux/ae.safetensors"                                                                                                                                      
-apply_t5_attn_mask = true                                                                                                                                                      
-bucket_no_upscale = true                                                                                                                                                       
-bucket_reso_steps = 64                                                                                                                                                         
-cache_latents = true                                                                                                                                                           
-cache_latents_to_disk = true                                                                                                                                                   
-caption_extension = ".txt"                                                                                                                                                     
-clip_l = "/app/flux/clip_l.safetensors"                                                                                                                              
-discrete_flow_shift = 3.1582                                                                                                                                                   
-dynamo_backend = "no"                                                                                                                                                          
-epoch = 100                                                                                                                                                                    
-full_bf16 = true                                                                                                                                                               
-gradient_accumulation_steps = 1                                                                                                                                                
-gradient_checkpointing = true                                                                                                                                                  
-guidance_scale = 1.0                                                                                                                                                           
-highvram = true                                                                                                                                                                
-huber_c = 0.1                                                                                                                                                                  
-huber_scale = 1                                                                                                                                                                
+gradient_checkpointing = true
+guidance_scale = 1.0
+highvram = true
+huber_c = 0.1
+huber_scale = 1
 huber_schedule = "snr"
 huggingface_path_in_repo = "checkpoint"
 huggingface_repo_id = ""
 huggingface_repo_type = "model"
 huggingface_repo_visibility = "public"
-huggingface_token = ""                                                                                                                                                         
-loss_type = "l2"                                                                                                                                                               
-lr_scheduler = "constant"                                                                                                                                                      
-lr_scheduler_args = []                                                                                                                                                         
-lr_scheduler_num_cycles = 1                                                                                                                                                    
-lr_scheduler_power = 1                                                                                                                                                         
-max_bucket_reso = 2048                                                                                                                                                         
-max_data_loader_n_workers = 0                                                                                                                                                  
-max_timestep = 1000                                                                                                                                                            
-max_train_steps = 3000                                                                                                                                                       
-mem_eff_save = true                                                                                                                                                            
-min_bucket_reso = 256                                                                                                                                                          
-mixed_precision = "bf16"                                                                                                                                                       
-model_prediction_type = "raw"                                                                                                                                                  
-network_alpha = 128                                                                                                                                                            
-network_args = [ "train_double_block_indices=all", "train_single_block_indices=all", "train_t5xxl=True",]                                                                      
-network_dim = 128                                                                                                                                                              
-network_module = "networks.lora_flux"                                                                                                                                          
-noise_offset_type = "Original"                                                                                                                                                 
-optimizer_args = [ "scale_parameter=False", "relative_step=False", "warmup_init=False", "weight_decay=0.01",]                                                                  
-optimizer_type = "Adafactor"                                                                                                                                                   
-output_dir = "/app/outputs"                                                                                                                                          
-output_name = "last"                                                                                                                                                 
-pretrained_model_name_or_path = "/app/flux/unet.safetensors"                                                                                                                  
-prior_loss_weight = 1                                                                                                                                                          
-resolution = "1024,1024"                                                                                                                                                       
-sample_prompts = ""                                                                                                                    
-sample_sampler = "euler_a"                                                                                                                                                     
-save_every_n_epochs = 25                                                                                                                                                       
-save_model_as = "safetensors"                                                                                                                                                  
-save_precision = "float"                                                                                                                                                       
-seed = 1                                                                                                                                                                       
-t5xxl = "/app/flux/t5xxl_fp16.safetensors"                                                                                                                           
-t5xxl_max_token_length = 512                                                                                                                                                   
-text_encoder_lr = [ 5e-5, 5e-5,]                                                                                                                                               
-timestep_sampling = "sigmoid"                                                                                                                                                  
-train_batch_size = 1                                                                                                                                                           
-train_data_dir = ""                                                                                                                               
-unet_lr = 5e-5                                                                                                                                                                 
-vae_batch_size = 4                                                                                                                                                             
-wandb_run_name = "last"                                                                                                                                              
+huggingface_token = ""
+loss_type = "l2"
+lr_scheduler = "constant"
+lr_scheduler_args = []
+lr_scheduler_num_cycles = 1
+lr_scheduler_power = 1
+max_bucket_reso = 2048
+max_data_loader_n_workers = 0
+max_timestep = 1000
+max_train_steps = 3000
+mem_eff_save = true
+min_bucket_reso = 256
+mixed_precision = "bf16"
+model_prediction_type = "raw"
+network_alpha = 128
+network_args = [ "train_double_block_indices=all", "train_single_block_indices=all", "train_t5xxl=True", ]
+network_dim = 128
+network_module = "networks.lora_flux"
+noise_offset_type = "Original"
+optimizer_args = [ "scale_parameter=False", "relative_step=False", "warmup_init=False", "weight_decay=0.01", ]
+optimizer_type = "Adafactor"
+output_dir = "/app/outputs"
+output_name = "last"
+pretrained_model_name_or_path = "/app/flux/unet.safetensors"
+prior_loss_weight = 1
+resolution = "1024,1024"
+sample_prompts = ""
+sample_sampler = "euler_a"
+save_every_n_epochs = 25
+save_model_as = "safetensors"
+save_precision = "float"
+seed = 1
+t5xxl = "/app/flux/t5xxl_fp16.safetensors"
+t5xxl_max_token_length = 512
+text_encoder_lr = [ 5e-5, 5e-5, ]
+timestep_sampling = "sigmoid"
+train_batch_size = 1
+train_data_dir = ""
+unet_lr = 5e-5
+vae_batch_size = 4
+wandb_run_name = "last"
 xformers = true
 EOL
+echo "✅ base_diffusion_flux.toml created."
 
+#----------------------------------------
+# Generate tuning.py
+#----------------------------------------
+echo "→ Removing old tuning.py..."
 rm -f G.O.D/miner/endpoints/tuning.py
 
-cat > G.O.D/miner/endpoints/tuning.py <<EOL
+echo "→ Writing new tuning.py..."
+cat > G.O.D/miner/endpoints/tuning.py <<'EOL'
 import os
 from datetime import datetime
 from datetime import timedelta
@@ -301,8 +263,6 @@ async def tune_model_diffusion(
 
 async def get_latest_model_submission(task_id: str) -> str:
     try:
-        # Temporary work around in order to not change the vali a lot
-        # Could send the task type from vali instead of matching file names
         config_filename = f"{task_id}.yml"
         config_path = os.path.join(cst.CONFIG_DIR, config_filename)
         if os.path.exists(config_path):
@@ -334,7 +294,6 @@ async def task_offer(
 ) -> MinerTaskResponse:
     try:
         logger.info("An offer has come through")
-        # You will want to optimise this as a miner
         global current_job_finish_time
         current_time = datetime.now()
         if request.task_type not in [TaskType.INSTRUCTTEXTTASK, TaskType.DPOTASK]:
@@ -406,14 +365,6 @@ async def task_offer_image(
 
 def factory_router() -> APIRouter:
     router = APIRouter()
-#    router.add_api_route(
-#        "/task_offer/",
-#        task_offer,
-#        tags=["Subnet"],
-#        methods=["POST"],
-#        response_model=MinerTaskResponse,
-#        dependencies=[Depends(blacklist_low_stake), Depends(verify_request)],
-#    )
 
     router.add_api_route(
         "/task_offer_image/",
@@ -435,7 +386,7 @@ def factory_router() -> APIRouter:
         dependencies=[Depends(blacklist_low_stake), Depends(verify_get_request)],
     )
     router.add_api_route(
-        "/start_training/",  # TODO: change to /start_training_text or similar
+        "/start_training/",
         tune_model_text,
         tags=["Subnet"],
         methods=["POST"],
@@ -452,5 +403,7 @@ def factory_router() -> APIRouter:
     )
 
     return router
-
 EOL
+echo "✅ tuning.py created."
+
+echo "🎉 [$(date '+%Y-%m-%d %H:%M:%S')] All configuration files generated successfully!"
