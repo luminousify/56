@@ -12,65 +12,84 @@ rm -f G.O.D/core/config/base_diffusion_sdxl.toml
 
 echo "→ Writing new base_diffusion_sdxl.toml..."
 cat > G.O.D/core/config/base_diffusion_sdxl.toml <<'EOL'
+# --- Data Handling & Caching ---
 async_upload = true
 bucket_no_upscale = true
 bucket_reso_steps = 32
 cache_latents = true
 cache_latents_to_disk = true
 caption_extension = ".txt"
-clip_skip = 1
-dynamo_backend = "no"
 enable_bucket = true
-epoch = 30                                # Increased for more passes through data
+max_bucket_reso = 2048
+min_bucket_reso = 256
+resolution = "1024,1024"              # Full resolution for RTX 4090
+train_data_dir = ""                   # Specify your dataset path here
+
+# --- Model & Architecture ---
+pretrained_model_name_or_path = "stabilityai/stable-diffusion-xl-base-1.0"
+network_module = "networks.lora"
+network_dim = 128                     # Doubled for much more capacity to memorize patterns
+network_alpha = 8                     # Reduced for less stability/regularization (interacts with high LR)
+network_args =
+
+# --- Training Duration & Batching ---
+epoch = 30                            # Increased for more passes through data
+max_train_steps = 6000                # More steps to ensure complete memorization
+train_batch_size = 1                  # Keep at 1 for maximum overfitting
 gradient_accumulation_steps = 1
-gradient_checkpointing = false            # Disabled to promote memorization (RTX 4090 has enough VRAM)
-huber_c = 0.05                            # Reduced for less robust loss function
-huber_schedule = "constant"               # Changed to constant for consistent behavior
+
+# --- Learning Rate & Scheduling ---
+learning_rate = 0.0005                # Significantly higher for faster overfitting
+text_encoder_lr = 0.0005              # Higher for faster overfitting (matches UNet LR)
+unet_lr = 0.0005                      # Higher for faster overfitting
+lr_scheduler = "constant"             # No decay
+lr_scheduler_args =
+lr_scheduler_num_cycles = 1
+lr_scheduler_power = 1
+
+# --- Optimization & Regularization ---
+optimizer_type = "AdamW8Bit"
+optimizer_args = ["weight_decay=0.0"] # Explicitly disable weight decay (L2 regularization)
+loss_type = "l2"
+huber_c = 0.05                        # Reduced for less robust loss function (closer to L2)
+huber_schedule = "constant"           # Changed to constant for consistent behavior
+min_snr_gamma = 0                     # Removed SNR weighting completely
+max_grad_norm = 20                    # Much higher to allow extreme updates (less clipping)
+scale_weight_norms = 0                # Removed weight norm scaling (potential regularization)
+prior_loss_weight = 1                 # Default; consider setting to 0 if no prior preservation needed
+
+# --- Precision & Performance ---
+mixed_precision = "bf16"
+gradient_checkpointing = false        # Disabled to promote memorization (RTX 4090 has enough VRAM)
+no_half_vae = true                    # Use full precision VAE for higher fidelity latents
+xformers = true
+dynamo_backend = "no"
+max_data_loader_n_workers = 0
+
+# --- Text Encoder & Noise ---
+clip_skip = 1                         # Use second-to-last CLIP layer
+max_token_length = 75
+noise_offset_type = "Original"
+max_timestep = 1000
+
+# --- Saving & Output ---
+output_dir = "/app/outputs"           # Specify your output directory
+output_name = "overfitting_research_run" # Descriptive name
+save_every_n_epochs = 5               # Save less frequently to focus on training
+save_model_as = "safetensors"
+save_precision = "bf16"
+training_comment = "Intentional overfitting research configuration"
+
+# --- Sampling (Optional, for mid-training checks) ---
+sample_prompts = ""                   # Add prompts if you want samples during training
+sample_sampler = "euler_a"
+
+# --- Hugging Face Hub Integration (Optional) ---
 huggingface_path_in_repo = "checkpoint"
 huggingface_repo_id = ""
 huggingface_repo_type = "model"
 huggingface_repo_visibility = "public"
 huggingface_token = ""
-learning_rate = 0.0005                    # Significantly higher for faster overfitting
-loss_type = "l2"
-lr_scheduler = "constant"                 # No decay
-lr_scheduler_args = []
-lr_scheduler_num_cycles = 1
-lr_scheduler_power = 1
-max_bucket_reso = 2048
-max_data_loader_n_workers = 0
-max_grad_norm = 20                        # Much higher to allow extreme updates
-max_timestep = 1000
-max_token_length = 75
-max_train_steps = 6000                    # More steps to ensure complete memorization
-min_bucket_reso = 256
-min_snr_gamma = 0                         # Removed SNR weighting completely
-mixed_precision = "bf16"
-network_alpha = 8                         # Reduced for less stability/regularization
-network_args = []
-network_dim = 128                         # Doubled for much more capacity to memorize patterns
-network_module = "networks.lora"
-no_half_vae = true
-noise_offset_type = "Original"
-optimizer_args = ["weight_decay=0.0"]     # Explicitly disable weight decay
-optimizer_type = "AdamW8Bit"
-output_dir = "/app/outputs"
-output_name = "last"
-pretrained_model_name_or_path = "stabilityai/stable-diffusion-xl-base-1.0"
-prior_loss_weight = 1
-resolution = "1024,1024"                  # Full resolution for RTX 4090
-sample_prompts = ""
-sample_sampler = "euler_a"
-save_every_n_epochs = 5                   # Save less frequently to focus on training
-save_model_as = "safetensors"
-save_precision = "bf16"
-scale_weight_norms = 0                    # Removed weight norm scaling
-text_encoder_lr = 0.0005                  # Higher for faster overfitting
-train_batch_size = 1                      # Keep at 1 for maximum overfitting
-train_data_dir = ""
-training_comment = "Intentional overfitting research"
-unet_lr = 0.0005                          # Higher for faster overfitting
-xformers = true
 EOL
 echo "✅ base_diffusion_sdxl.toml created."
 
