@@ -30,7 +30,6 @@ pretrained_model_name_or_path = "stabilityai/stable-diffusion-xl-base-1.0"
 network_module = "networks.lora"
 network_dim = 128                     # Doubled for much more capacity to memorize patterns
 network_alpha = 8                     # Reduced for less stability/regularization (interacts with high LR)
-network_args =
 
 # --- Training Duration & Batching ---
 epoch = 30                            # Increased for more passes through data
