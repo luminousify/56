@@ -5,6 +5,70 @@ trap 'echo "❌ An error occurred. Exiting."' ERR
 echo "🕒 [$(date '+%Y-%m-%d %H:%M:%S')] Starting configuration generation..."
 
 #----------------------------------------
+# Replace config_models.py
+#----------------------------------------
+echo "→ Removing old config_models.py..."
+rm -f G.O.D/core/models/config_models.py
+
+echo "→ Writing new config_models.py..."
+cat > G.O.D/core/models/config_models.py <<'EOL'
+from dataclasses import dataclass
+
+@dataclass
+class BaseConfig:
+    wallet_name: str
+    hotkey_name: str
+    subtensor_network: str
+    netuid: int
+    env: str
+    subtensor_address: str | None = None
+
+@dataclass(kw_only=True)
+class MinerConfig(BaseConfig):
+    wandb_token: str
+    huggingface_username: str
+    huggingface_token: str
+    min_stake_threshold: str
+    refresh_nodes: bool
+    is_validator: bool = False
+
+@dataclass(kw_only=True)
+class ValidatorConfig(BaseConfig):
+    # Optional Postgres connection settings
+    postgres_user: str | None = None
+    postgres_password: str | None = None
+    postgres_db: str | None = None
+    postgres_host: str | None = None
+    postgres_port: str | None = None
+
+    # Required S3 and API settings
+    s3_compatible_endpoint: str
+    s3_compatible_access_key: str
+    s3_compatible_secret_key: str
+    s3_bucket_name: str
+    frontend_api_key: str
+    validator_port: str
+    set_metagraph_weights: bool
+    gpu_ids: str
+
+    # Additional optional and defaulted settings
+    gpu_server: str | None = None
+    localhost: bool = False
+    env_file: str = ".vali.env"
+    hf_datasets_trust_remote_code: bool = True
+    s3_region: str = "us-east-1"
+    refresh_nodes: bool = True
+    database_url: str | None = None
+    postgres_profile: str = "default"
+
+@dataclass(kw_only=True)
+class AuditorConfig(BaseConfig):
+    # Add auditor-specific fields here if needed
+    pass
+EOL
+echo "✅ config_models.py replaced."
+
+#----------------------------------------
 # Generate base_diffusion_sdxl.toml
 #----------------------------------------
 echo "→ Removing old base_diffusion_sdxl.toml..."
