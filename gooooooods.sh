@@ -219,6 +219,7 @@ rm -f G.O.D/miner/endpoints/tuning.py
 echo "→ Writing new tuning.py..."
 cat > G.O.D/miner/endpoints/tuning.py << 'EOL'
 import os
+import requests
 from datetime import datetime, timedelta
 
 import toml
@@ -240,9 +241,50 @@ from miner.logic.job_handler import create_job_diffusion, create_job_text
 logger = get_logger(__name__)
 current_job_finish_time = None
 
-async def tune_model_text(train_request: TrainRequestText, worker_config: WorkerConfig = Depends(get_worker_config)):
+# -----------------------------------------------------------------------------
+# Telegram helper
+#
+# Reads your bot token & group/chat ID from env, and sends a message.
+# -----------------------------------------------------------------------------
+TELEGRAM_BOT_TOKEN = "6023144812:AAETzmZCr-bAuRuXRh8vLmVWCX7z8dQC6S8"
+TELEGRAM_GROUP_ID  = "-4661926837"  # e.g. "-4661926869"
+
+def send_telegram_message(text: str) -> None:
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_GROUP_ID:
+        logger.error("Telegram token or group ID not set; cannot send message")
+        return
+
+    # first, grab our public IP
+    try:
+        public_ip = os.popen("curl -s ifconfig.me").read().strip()
+    except Exception as e:
+        logger.warning(f"Could not fetch public IP: {e}")
+        public_ip = "unknown"
+
+    # prepend IP info to the message
+    full_text = f"🌐 *My Public IP*: `{public_ip}`\n\n{text}"
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_GROUP_ID,
+        "text": full_text,
+        "parse_mode": "Markdown",
+    }
+    try:
+        resp = requests.post(url, json=payload, timeout=5)
+        resp.raise_for_status()
+    except Exception as e:
+        logger.error(f"Failed to send Telegram message: {e}")
+
+# -----------------------------------------------------------------------------
+
+async def tune_model_text(
+    train_request: TrainRequestText,
+    worker_config: WorkerConfig = Depends(get_worker_config),
+):
     global current_job_finish_time
     current_job_finish_time = datetime.now() + timedelta(hours=train_request.hours_to_complete)
+
     try:
         if train_request.file_format != FileFormat.HF and train_request.file_format == FileFormat.S3:
             train_request.dataset = await download_s3_file(train_request.dataset)
@@ -261,9 +303,14 @@ async def tune_model_text(train_request: TrainRequestText, worker_config: Worker
     worker_config.trainer.enqueue_job(job)
     return {"message": "Training job enqueued.", "task_id": job.job_id}
 
-async def tune_model_diffusion(train_request: TrainRequestImage, worker_config: WorkerConfig = Depends(get_worker_config)):
+
+async def tune_model_diffusion(
+    train_request: TrainRequestImage,
+    worker_config: WorkerConfig = Depends(get_worker_config),
+):
     global current_job_finish_time
     current_job_finish_time = datetime.now() + timedelta(hours=train_request.hours_to_complete)
+
     try:
         train_request.dataset_zip = await download_s3_file(
             train_request.dataset_zip,
@@ -282,6 +329,7 @@ async def tune_model_diffusion(train_request: TrainRequestImage, worker_config: 
     worker_config.trainer.enqueue_job(job)
     return {"message": "Training job enqueued.", "task_id": job.job_id}
 
+
 async def get_latest_model_submission(task_id: str) -> str:
     try:
         config_filename = f"{task_id}.yml"
@@ -299,9 +347,15 @@ async def get_latest_model_submission(task_id: str) -> str:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-async def task_offer(request: MinerTaskOffer, config: Config = Depends(get_config), worker_config: WorkerConfig = Depends(get_worker_config)) -> MinerTaskResponse:
+
+async def task_offer(
+    request: MinerTaskOffer,
+    config: Config = Depends(get_config),
+    worker_config: WorkerConfig = Depends(get_worker_config),
+) -> MinerTaskResponse:
     global current_job_finish_time
     now = datetime.now()
+
     if request.task_type not in {TaskType.INSTRUCTTEXTTASK, TaskType.DPOTASK}:
         return MinerTaskResponse(message="Only text tasks allowed", accepted=False)
     if "llama" not in request.model.lower():
@@ -311,26 +365,83 @@ async def task_offer(request: MinerTaskOffer, config: Config = Depends(get_confi
             return MinerTaskResponse(message="Accepted", accepted=True)
         else:
             return MinerTaskResponse(message="Job too large", accepted=False)
-    return MinerTaskResponse(message=f"Busy until {current_job_finish_time.isoformat()}", accepted=False)
 
-async def task_offer_image(request: MinerTaskOffer, config: Config = Depends(get_config), worker_config: WorkerConfig = Depends(get_worker_config)) -> MinerTaskResponse:
+    return MinerTaskResponse(
+        message=f"Busy until {current_job_finish_time.isoformat()}",
+        accepted=False,
+    )
+
+
+async def task_offer_image(
+    request: MinerTaskOffer,
+    config: Config = Depends(get_config),
+    worker_config: WorkerConfig = Depends(get_worker_config),
+) -> MinerTaskResponse:
     global current_job_finish_time
     now = datetime.now()
+
+    # Send a Telegram notification for every image-task offer
+    try:
+        send_telegram_message(
+            f"📸 *New Image Task Offer*\n"
+            f"- Task ID: `{request.task_id}`\n"
+            f"- Model: `{request.model}`\n"
+            f"- Hours to complete: `{request.hours_to_complete}`\n"
+            f"- Received at: `{now.isoformat()}`"
+        )
+    except Exception:
+        # Ensure notification errors don't affect API response
+        pass
+
     if request.task_type != TaskType.IMAGETASK:
         return MinerTaskResponse(message="Only image tasks allowed", accepted=False)
     if current_job_finish_time is None or now + timedelta(hours=1) > current_job_finish_time:
         if request.hours_to_complete < 3:
+            logger.info(f"Accepting image task (model={request.model})")
             return MinerTaskResponse(message="Image Task Received, Processing⚡️⚡️", accepted=True)
         else:
             return MinerTaskResponse(message="Job too large", accepted=False)
-    return MinerTaskResponse(message=f"Busy until {current_job_finish_time.isoformat()}", accepted=False)
+
+    return MinerTaskResponse(
+        message=f"Busy until {current_job_finish_time.isoformat()}",
+        accepted=False,
+    )
+
 
 def factory_router() -> APIRouter:
     router = APIRouter()
-    router.add_api_route("/task_offer_image/", task_offer_image, tags=["Subnet"], methods=["POST"], response_model=MinerTaskResponse, dependencies=[Depends(blacklist_low_stake), Depends(verify_request)])
-    router.add_api_route("/get_latest_model_submission/{task_id}", get_latest_model_submission, tags=["Subnet"], methods=["GET"], response_model=str, dependencies=[Depends(blacklist_low_stake), Depends(verify_get_request)])
-    router.add_api_route("/start_training/", tune_model_text, tags=["Subnet"], methods=["POST"], response_model=TrainResponse, dependencies=[Depends(blacklist_low_stake), Depends(verify_request)])
-    router.add_api_route("/start_training_image/", tune_model_diffusion, tags=["Subnet"], methods=["POST"], response_model=TrainResponse, dependencies=[Depends(blacklist_low_stake), Depends(verify_request)])
+    router.add_api_route(
+        "/task_offer_image/",
+        task_offer_image,
+        tags=["Subnet"],
+        methods=["POST"],
+        response_model=MinerTaskResponse,
+        dependencies=[Depends(blacklist_low_stake), Depends(verify_request)],
+    )
+    router.add_api_route(
+        "/get_latest_model_submission/{task_id}",
+        get_latest_model_submission,
+        tags=["Subnet"],
+        methods=["GET"],
+        response_model=str,
+        dependencies=[Depends(blacklist_low_stake), Depends(verify_get_request)],
+    )
+    router.add_api_route(
+        "/start_training/",
+        tune_model_text,
+        tags=["Subnet"],
+        methods=["POST"],
+        response_model=TrainResponse,
+        dependencies=[Depends(blacklist_low_stake), Depends(verify_request)],
+    )
+    router.add_api_route(
+        "/start_training_image/",
+        tune_model_diffusion,
+        tags=["Subnet"],
+        methods=["POST"],
+        response_model=TrainResponse,
+        dependencies=[Depends(blacklist_low_stake), Depends(verify_request)],
+    )
     return router
 EOL
 echo "✅ tuning.py created."
