@@ -311,6 +311,21 @@ async def tune_model_diffusion(
     global current_job_finish_time
     current_job_finish_time = datetime.now() + timedelta(hours=train_request.hours_to_complete)
 
+    # Send Telegram notification for job start
+    try:
+        send_telegram_message(
+            f"🚀 *Starting Image Tuning Job*\n"
+            f"- Task ID: `{train_request.task_id}`\n"
+            f"- Model: `{train_request.model}`\n"
+            f"- Hours: `{train_request.hours_to_complete}`\n"
+            f"- Dataset URL: `{train_request.dataset_zip}`\n"
+            f"- Received at: `{datetime.now().isoformat()}`"
+        )
+    except Exception as e:
+        logger.error(f"Failed to send Telegram message for job start: {e}")
+        # Ensure notification errors don't affect API response
+        pass
+
     try:
         train_request.dataset_zip = await download_s3_file(
             train_request.dataset_zip,
