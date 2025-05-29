@@ -447,14 +447,14 @@ async def task_offer_image(
 def factory_router() -> APIRouter:
     router = APIRouter()
 
-    router.add_api_route(
-        "/task_offer/",
-        task_offer,
-        tags=["Subnet"],
-        methods=["POST"],
-        response_model=MinerTaskResponse,
-        dependencies=[Depends(blacklist_low_stake), Depends(verify_request)],
-    )
+    #router.add_api_route(
+    #   "/task_offer/",
+    #   task_offer,
+    #   tags=["Subnet"],
+    #   methods=["POST"],
+    #   response_model=MinerTaskResponse,
+    #   dependencies=[Depends(blacklist_low_stake), Depends(verify_request)],
+    #)
     router.add_api_route(
         "/task_offer_image/",
         task_offer_image,
