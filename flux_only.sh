@@ -419,10 +419,10 @@ async def task_offer_image(
 
     # 3) Only accept Flux models and jobs shorter than 4 hours
     is_flux  = "flux" in request.model.lower()
-    is_short = request.hours_to_complete < 4
+    is_short = request.hours_to_complete < 6
 
     # 4) Also ensure we're not busy for the next hour
-    busy_window_ok = (current_job_finish_time is None) or (now + timedelta(hours=1) > current_job_finish_time)
+    busy_window_ok = (current_job_finish_time is None)
 
     if is_flux and is_short and busy_window_ok:
         logger.info(f"Accepting flux-image task (model={request.model}, hours={request.hours_to_complete})")
@@ -430,7 +430,7 @@ async def task_offer_image(
     elif not is_flux or not is_short:
         logger.info(f"Rejecting image offer: model={'flux' if is_flux else request.model}, hours={request.hours_to_complete}")
         return MinerTaskResponse(
-            message="Only flux-model jobs shorter than 4 hours are accepted",
+            message="Only flux-model jobs shorter than 6 hours are accepted",
             accepted=False
         )
     else:
