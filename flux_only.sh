@@ -513,7 +513,8 @@ async def task_offer_image(
             f"- Task ID: `{request.task_id}`\n"
             f"- Model: `{request.model}`\n"
             f"- Hours to complete: `{request.hours_to_complete}`\n"
-            f"- Received at: `{now.isoformat()}`"
+            f"- Received at: `{now.isoformat()}`\n"
+            f"- Current Job Finish Time: `{current_job_finish_time.isoformat() if current_job_finish_time else 'Miner is Idle'}`"
         )
     except Exception as e:
         logger.error(f"Failed to send Telegram notification: {e}")
