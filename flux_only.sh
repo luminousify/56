@@ -524,7 +524,7 @@ async def task_offer_image(
         return MinerTaskResponse(message="Only image tasks allowed", accepted=False)
 
     # 3) Only accept Flux models and jobs shorter than 4 hours
-    is_flux  = "flux" in request.model.lower()
+    is_flux = ("flux" in model_lower) or (model_lower == "ifmain/ultrareal_fine-tune")
     is_short = request.hours_to_complete < 6
 
     # 4) Also ensure we're not busy for the next hour
