@@ -449,17 +449,26 @@ async def tune_model_diffusion(
 # Get latest submission (unchanged)
 # -----------------------------------------------------------------------------
 async def get_latest_model_submission(task_id: str) -> str:
+    global current_job_finish_time
+
     try:
         config_filename = f"{task_id}.yml"
         config_path = os.path.join(cst.CONFIG_DIR, config_filename)
+
         if os.path.exists(config_path):
             with open(config_path) as f:
-                return yaml.safe_load(f).get("hub_model_id")
+                hub_id = yaml.safe_load(f).get("hub_model_id")
         else:
             config_filename = f"{task_id}.toml"
             config_path = os.path.join(cst.CONFIG_DIR, config_filename)
             with open(config_path) as f:
-                return toml.load(f).get("huggingface_repo_id")
+                hub_id = toml.load(f).get("huggingface_repo_id")
+
+        # Successfully found a submission → clear the busy flag
+        current_job_finish_time = None
+
+        return hub_id
+
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"No submission for {task_id}")
     except Exception as e:
