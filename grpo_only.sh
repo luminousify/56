@@ -516,10 +516,10 @@ async def task_offer(
     config: Config = Depends(get_config),
     worker_config: WorkerConfig = Depends(get_worker_config),
 ) -> MinerTaskResponse:
-        global current_job_finish_time
-        current_time = datetime.now()
-        now = datetime.now()
-        # 1) Notify Telegram immediately
+    global current_job_finish_time
+    now = datetime.now()
+
+    # Fire-and-forget Telegram; never lets messaging failure skip your return
     try:
         send_telegram_message(
             f"📸 *New Text Task Offer*\n"
@@ -531,37 +531,36 @@ async def task_offer(
         )
     except Exception as e:
         logger.error(f"Failed to send Telegram notification: {e}")
-        
-        if request.task_type not in [TaskType.GRPOTASK]:
-            return MinerTaskResponse(
-                message=f"This endpoint only accepts text tasks: "
-                f"{TaskType.INSTRUCTTEXTTASK}, {TaskType.DPOTASK} and {TaskType.GRPOTASK}",
-                accepted=False,
-            )
 
-        if "llama" not in request.model.lower():
-            return MinerTaskResponse(message="I'm not yet optimised and only accept llama-type jobs", accepted=False)
+    # --- now run your acceptance logic unconditionally ---
+    if request.task_type not in [TaskType.GRPOTASK]:
+        return MinerTaskResponse(
+            message=(
+                "This endpoint only accepts text tasks: "
+                f"{TaskType.INSTRUCTTEXTTASK}, {TaskType.DPOTASK} and {TaskType.GRPOTASK}"
+            ),
+            accepted=False,
+        )
 
-        if current_job_finish_time is None or current_time + timedelta(hours=1) > current_job_finish_time:
-            if request.hours_to_complete < 13:
-                logger.info("Accepting the offer - ty snr")
-                return MinerTaskResponse(message=f"Yes. I can do {request.task_type} jobs", accepted=True)
-            else:
-                logger.info("Rejecting offer")
-                return MinerTaskResponse(message="I only accept small jobs", accepted=False)
+    if "llama" not in request.model.lower():
+        return MinerTaskResponse(
+            message="I'm not yet optimised and only accept llama-type jobs",
+            accepted=False,
+        )
+
+    # Busy‐flag logic
+    if current_job_finish_time is None or now + timedelta(hours=1) > current_job_finish_time:
+        if request.hours_to_complete < 13:
+            logger.info("Accepting the offer")
+            return MinerTaskResponse(message="Yes. I can do text jobs", accepted=True)
         else:
-            return MinerTaskResponse(
-                message=f"Currently busy with another job until {current_job_finish_time.isoformat()}",
-                accepted=False,
-            )
-
-    except ValidationError as e:
-        logger.error(f"Validation error: {str(e)}")
-        raise HTTPException(status_code=422, detail=str(e))
-    except Exception as e:
-        logger.error(f"Unexpected error in task_offer: {str(e)}")
-        logger.error(f"Error type: {type(e)}")
-        raise HTTPException(status_code=500, detail=f"Error processing task offer: {str(e)}")
+            logger.info("Rejecting offer: too long")
+            return MinerTaskResponse(message="I only accept small jobs", accepted=False)
+    else:
+        return MinerTaskResponse(
+            message=f"Currently busy until {current_job_finish_time.isoformat()}",
+            accepted=False,
+        )
 
 # -----------------------------------------------------------------------------
 # Image‐task offer endpoint (MERGED version)
